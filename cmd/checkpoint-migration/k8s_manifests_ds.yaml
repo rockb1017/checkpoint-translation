@@ -11,7 +11,6 @@ spec:
       labels:
         name: checkpoint-translation
     spec:
-      RestartPolicy: Never
       containers:
         - name: loggen
           image: rock1017/checkpoint-migration:1.0.0
@@ -39,10 +38,10 @@ spec:
               mountPath: /var/log
             - name: varlibotelpos
               mountPath: /var/lib/otel_pos
-        volumes:
-          - name: varlog
-            hostPath:
-              path: /var/log
-          - name: varlibotelpos
-            hostPath:
-              path: /var/lib/otel_pos
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibotelpos
+          hostPath:
+            path: /var/lib/otel_pos

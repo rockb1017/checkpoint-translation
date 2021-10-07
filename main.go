@@ -235,6 +235,8 @@ func main() {
 			}
 		}
 	}
+	fmt.Println("Completed")
+	time.Sleep(1*time.Hour)
 }
 
 func readLines(path string) ([]string, error) {
