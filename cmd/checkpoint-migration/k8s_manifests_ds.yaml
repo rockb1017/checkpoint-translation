@@ -27,7 +27,7 @@ spec:
             - name: CUSTOM_LOG_PATH_OTEL
               value: "/var/lib/otel_pos/receiver_filelog_"
             - name: JOURNALD_LOG_PATH_FLUENTD
-              value: "splunkd-fluentd-journald-*.pos.json"
+              value: "/var/log/splunkd-fluentd-journald-*.pos.json"
             - name: JOURNALD_LOG_PATH_OTEL
               value: "/var/lib/otel_pos/receiver_journald_"
           resources:

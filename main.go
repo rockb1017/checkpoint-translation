@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -166,9 +167,6 @@ func main() {
 	customLogPathFluentd := getEnv("CUSTOM_LOG_PATH_FLUENTD", "/var/log/splunk-fluentd-*.pos")
 	customLogPathOtel := getEnv("CUSTOM_LOG_PATH_OTEL", "/var/lib/otel_pos/receiver_filelog_")
 
-	//journaldLogPathFluentd := getEnv("JOURNALD_LOG_PATH_FLUENTD", "splunkd-fluentd-journald-*.pos.json" )
-	//journaldLogPathOtel := getEnv("JOURNALD_LOG_PATH_OTEL", "/var/lib/otel_pos/receiver_journald_" )
-
 	// Container File Logs
 	lines, err := readLines(containerLogPathFluentd)
 	if err != nil {
@@ -196,7 +194,7 @@ func main() {
 	buf := syncLastPollFiles(readers)
 
 	err = client.Set("$.file_input.knownFiles", buf.Bytes())
-	if err != nil{
+	if err != nil {
 		fmt.Println(err)
 	}
 
@@ -235,8 +233,10 @@ func main() {
 			}
 		}
 	}
+
+	migrateJournaldPos()
 	fmt.Println("Completed")
-	time.Sleep(1*time.Hour)
+	time.Sleep(1 * time.Hour)
 }
 
 func readLines(path string) ([]string, error) {
@@ -310,4 +310,41 @@ func syncLastPollFiles(readers []*Reader) bytes.Buffer {
 		}
 	}
 	return buf
+}
+
+type journaldCursor struct {
+	Cursor string `json:"journal"`
+}
+
+func migrateJournaldPos() {
+	journaldLogPathFluentd := getEnv("JOURNALD_LOG_PATH_FLUENTD", "splunkd-fluentd-journald-*.pos.json")
+	journaldLogPathOtel := getEnv("JOURNALD_LOG_PATH_OTEL", "/var/lib/otel_pos/receiver_journald_")
+
+	var myExp = regexp.MustCompile(`\/var\/log\/splunkd\-fluentd\-journald\-(?P<name>[\w0-9-_]+)\.pos\.json`)
+	matches, _ := filepath.Glob(journaldLogPathFluentd)
+	for _, match := range matches {
+		captured := myExp.FindStringSubmatch(match)
+		if len(captured) > 0 {
+			jsonFile, err := os.Open(match)
+			if err != nil {
+				continue
+			}
+			byteValue, _ := ioutil.ReadAll(jsonFile)
+			var cursor journaldCursor
+			err = json.Unmarshal(byteValue, &cursor)
+			if err != nil {
+				continue
+			}
+
+			client, err := newClient(journaldLogPathOtel+captured[1], 100)
+			if err != nil {
+				fmt.Println(err)
+			}
+			err = client.Set("$.journald_input.lastReadCursor", []byte(cursor.Cursor))
+			if err != nil {
+				fmt.Println(err)
+			}
+			client.Close()
+		}
+	}
 }
